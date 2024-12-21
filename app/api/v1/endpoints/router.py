@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from app.repository.database import Guardia, SessionLocal
 from sqlalchemy.orm import Session
 from app.schemas.GuardSchema import GuardiaCreate
@@ -29,18 +29,33 @@ def assign_shifts(db: Session = Depends(get_db)):
     return {"asignaciones": asignaciones}
 
 # Endpoint para agregar un guardia
-@router.post("/guardias/")
+@router.post("/create_guard")
 def add_guardia(guardia: GuardiaCreate, db: Session = Depends(get_db)):
-    new_guardia = Guardia(
-        nombre=guardia.nombre,
-        apellido=guardia.apellido,
-        email=guardia.email,
-        comuna=guardia.comuna,
-    )
-    db.add(new_guardia)
+    print("Datos recibidos:", guardia)
+    try:
+        new_guardia = Guardia(
+            nombre=guardia.nombre,
+            apellido=guardia.apellido,
+            email=guardia.email,
+            comuna=guardia.comuna,
+        )
+        db.add(new_guardia)
+        db.commit()
+        db.refresh(new_guardia)
+        return new_guardia
+    except Exception as e:
+        print("Error al guardar el guardia:", e)
+        raise HTTPException(status_code=500, detail="Error al guardar el guardia")
+
+@router.delete("/guardias/{guardia_id}")
+def delete_guardia(guardia_id: int, db: Session = Depends(get_db)):
+    guardia = db.query(Guardia).get(guardia_id)
+     # Verificar si el guardia existe
+    if not guardia:
+        raise HTTPException(status_code=404, detail="Guardia no encontrado")
+    db.delete(guardia)
     db.commit()
-    db.refresh(new_guardia)
-    return new_guardia
+    return {"message": "Guardia eliminado"}
 
 @router.get("/guardias/")
 def get_guardias(db: Session = Depends(get_db)):
